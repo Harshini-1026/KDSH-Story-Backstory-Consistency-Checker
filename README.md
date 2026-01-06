@@ -78,7 +78,32 @@ Final Output:
 
 ## 📂 Project Structure
 
-(keep same as folder tree above)
+KDSH-Story-Backstory-Consistency-Checker/
+
+ ├─ data/
+ │   ├─ train.csv          ← INPUT (Dataset - Provided)
+ │   ├─ test.csv           ← INPUT (Dataset - Provided)
+
+ ├─ processed/
+ │   ├─ train_chunks.csv   ← OUTPUT by Dharanesh
+ │   ├─ test_chunks.csv    ← OUTPUT by Dharanesh
+ │   ├─ retrieval_outputs/ ← OUTPUT by Arunachalam
+ │   ├─ claims/            ← OUTPUT by Harshini
+
+ ├─ outputs/
+ │   ├─ results.csv        ← FINAL PROJECT OUTPUT
+
+ ├─ scripts/
+ │   ├─ load_and_split.py        ← Dharanesh work
+ │   ├─ retrieval_engine.py      ← Arunachalam work
+ │   ├─ consistency_checker.py   ← Barath work
+ │   ├─ backstory_claim_engine.py← Harshini work
+ │   ├─ run_pipeline.py          ← (optional final runner)
+
+ ├─ README.md
+ ├─ requirements.txt
+ ├─ .gitignore
+
 
 ---
 
