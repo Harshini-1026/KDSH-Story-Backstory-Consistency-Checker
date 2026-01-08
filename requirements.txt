@@ -2,3 +2,4 @@ pandas
 faiss-cpu
 sentence-transformers
 numpy
+pathway
