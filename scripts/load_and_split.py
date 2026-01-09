@@ -1,5 +1,4 @@
 # scripts/load_and_split.py
-
 import zipfile
 import csv
 from pathlib import Path

@@ -1,120 +1,148 @@
-import os
-from typing import List, Dict
+# =====================================================
+# KDSH 2026 – PART 2: CLAIM → EVIDENCE RETRIEVAL
+# =====================================================
 
+# ---------------- IMPORTS ----------------
+import os
 import pandas as pd
-import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
+# -----------------------------------------
 
-# ---------- SETTINGS ----------
-CHUNKS_FILE = os.path.join("processed", "story_chunks.csv")
-OUTPUT_FOLDER = os.path.join("processed", "retrieval_outputs")
+
+# ---------------- SETTINGS ----------------
+CHUNKS_FILE = "processed/train_chunks.csv"
+CLAIMS_FILE = "processed/claims/backstory_claims.csv"
+
+OUTPUT_FOLDER = "processed/retrieval_outputs"
+OUTPUT_FILE = "retrieval_results.csv"
+
 MODEL_NAME = "all-MiniLM-L6-v2"
 TOP_K = 5
-# ------------------------------
+# -----------------------------------------
 
 
-def ensure_output_folder():
-    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+# =====================================================
+# LOAD DATA
+# =====================================================
+
+def load_chunks():
+    df = pd.read_csv(CHUNKS_FILE)
+
+    required_cols = {"story_id", "chunk_id", "chunk_number", "text"}
+    if not required_cols.issubset(df.columns):
+        raise ValueError("Chunks file must contain story_id, chunk_id, chunk_number, text")
+
+    return df
 
 
-print("\nLoading embedding model...")
-model = SentenceTransformer(MODEL_NAME)
+def load_claims():
+    df = pd.read_csv(CLAIMS_FILE)
+
+    required_cols = {"claim_id", "story_id", "claim"}
+    if not required_cols.issubset(df.columns):
+        raise ValueError("Claims file must contain claim_id, story_id, claim")
+
+    return df
 
 
-def embed_text_list(text_list: List[str]) -> np.ndarray:
-    """Convert list of texts to normalized embeddings (for cosine similarity)."""
-    emb = model.encode(text_list, convert_to_numpy=True)
-    # normalize for cosine similarity with IndexFlatIP
-    norms = np.linalg.norm(emb, axis=1, keepdims=True)
-    norms[norms == 0] = 1.0
-    emb = emb / norms
-    return emb.astype(np.float32)
+# =====================================================
+# EMBEDDING + FAISS
+# =====================================================
+
+def embed_texts(model, texts):
+    return model.encode(texts, convert_to_numpy=True)
 
 
-def build_faiss_index(embeddings: np.ndarray) -> faiss.IndexFlatIP:
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dim)
+def build_faiss_index(embeddings):
+    dimension = embeddings.shape[1]
+    index = faiss.IndexFlatL2(dimension)
     index.add(embeddings)
     return index
 
 
-def load_chunks() -> pd.DataFrame:
-    if not os.path.exists(CHUNKS_FILE):
-        raise FileNotFoundError(f"Chunks file not found: {CHUNKS_FILE}")
+# =====================================================
+# RETRIEVAL CORE
+# =====================================================
 
-    df = pd.read_csv(CHUNKS_FILE)
-    print(f"Loaded {len(df)} chunks from {CHUNKS_FILE}")
-    return df
+def retrieve_evidence_for_claim(claim_row, model, df_chunks):
+    """
+    Retrieve top-K relevant chunks for a single claim
+    """
 
+    story_id = claim_row["story_id"]
+    claim_text = claim_row["claim"]
 
-def build_search_system():
-    df = load_chunks()
-    texts = df["text"].fillna("").tolist()
+    # Filter chunks for the same story
+    story_chunks = df_chunks[df_chunks["story_id"] == story_id].reset_index(drop=True)
 
-    print("Embedding story chunks...")
-    embeddings = embed_text_list(texts)
+    texts = story_chunks["text"].tolist()
+    chunk_ids = story_chunks["chunk_id"].tolist()
 
-    print("Building FAISS index (cosine similarity)...")
+    # Embed chunks
+    embeddings = embed_texts(model, texts)
+
+    # Build FAISS index
     index = build_faiss_index(embeddings)
 
-    return df, index, embeddings
+    # Embed claim
+    query_embedding = embed_texts(model, [claim_text])
 
+    # Search
+    distances, positions = index.search(query_embedding, TOP_K)
 
-# Build at import so callers can immediately use `get_relevant_chunks`.
-DF_CHUNKS, SEARCH_INDEX, EMB_STORE = build_search_system()
-
-
-def get_relevant_chunks(claim: str, top_k: int = TOP_K) -> List[Dict]:
-    """Return top_k relevant chunks for a claim.
-
-    Each result contains: chunk_id, story_id, similarity (cosine), text
-    """
-    if not claim or not isinstance(claim, str):
-        return []
-
-    q_emb = embed_text_list([claim])
-
-    # FAISS returns inner product; since vectors are normalized, this is cosine.
-    distances, positions = SEARCH_INDEX.search(q_emb, top_k)
-
+    # Collect results
     results = []
-    for score, pos in zip(distances[0], positions[0]):
-        if pos < 0 or pos >= len(DF_CHUNKS):
-            continue
-        row = DF_CHUNKS.iloc[int(pos)]
-        results.append(
-            {
-                "chunk_id": row.get("chunk_id"),
-                "story_id": row.get("story_id"),
-                "similarity": float(score),
-                "text": row.get("text"),
-            }
-        )
+    for dist, pos in zip(distances[0], positions[0]):
+        results.append({
+            "claim_id": claim_row["claim_id"],
+            "story_id": story_id,
+            "claim": claim_text,
+            "chunk_id": chunk_ids[pos],
+            "chunk_number": story_chunks.loc[pos, "chunk_number"],
+            "similarity_score": float(dist),
+            "text": story_chunks.loc[pos, "text"]
+        })
 
     return results
 
 
-def save_search_results(claim: str, results: List[Dict], file_name: str = "retrieval_sample.csv"):
-    ensure_output_folder()
-    out_path = os.path.join(OUTPUT_FOLDER, file_name)
-    df = pd.DataFrame(results)
-    df.insert(0, "claim", claim)
-    df.to_csv(out_path, index=False)
-    print(f"\n✔ Saved retrieved evidence to: {out_path}")
+# =====================================================
+# MAIN PIPELINE
+# =====================================================
+
+def main():
+
+    print("\n[PART 2] Loading data...")
+    df_chunks = load_chunks()
+    df_claims = load_claims()
+
+    print("[PART 2] Loading embedding model...")
+    model = SentenceTransformer(MODEL_NAME)
+
+    all_results = []
+
+    print("[PART 2] Retrieving evidence for claims...")
+    for _, claim_row in df_claims.iterrows():
+        print(f"  → Processing claim: {claim_row['claim']}")
+        claim_results = retrieve_evidence_for_claim(
+            claim_row, model, df_chunks
+        )
+        all_results.extend(claim_results)
+
+    # Save output
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    output_path = os.path.join(OUTPUT_FOLDER, OUTPUT_FILE)
+
+    pd.DataFrame(all_results).to_csv(output_path, index=False)
+
+    print("\n✅ PART 2 COMPLETED SUCCESSFULLY")
+    print(f"📄 Retrieval results saved to: {output_path}")
 
 
-def demo_example():
-    ensure_output_folder()
-    claim = "The character had a lonely childhood and feared abandonment"
-    results = get_relevant_chunks(claim)
-    for r in results:
-        print("\n--- Match ---")
-        print("Chunk:", r["chunk_id"])
-        print("Score:", r["similarity"])
-        print("Text:", (r["text"] or "")[:250], "...")
-    save_search_results(claim, results)
-
+# =====================================================
+# ENTRY POINT
+# =====================================================
 
 if __name__ == "__main__":
-    demo_example()
+    main()
