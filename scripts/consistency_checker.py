@@ -1,94 +1,88 @@
-import pandas as pd
 import os
+from typing import Tuple
 
-RETRIEVAL_FOLDER = "../processed/retrieval_outputs/"
-OUTPUT_FILE = "../outputs/results.csv"
+import pandas as pd
+
+OUTPUT_FILE = os.path.join("outputs", "results.csv")
 
 SUPPORT_KEYWORDS = [
-    "supports", "matches", "aligns", "consistent",
-    "similar", "reinforces", "confirms"
+    "supports",
+    "matches",
+    "aligns",
+    "consistent",
+    "similar",
+    "reinforces",
+    "confirms",
 ]
 
 CONTRADICT_KEYWORDS = [
-    "contradict", "opposite", "denies",
-    "conflicts", "inconsistent", "breaks"
+    "contradict",
+    "opposite",
+    "denies",
+    "conflicts",
+    "inconsistent",
+    "breaks",
+    "contradiction",
 ]
 
 
-def read_retrieval_file(file_name):
-    path = os.path.join(RETRIEVAL_FOLDER, file_name)
-    print(f"\nReading evidence from: {path}")
-    return pd.read_csv(path)
+def text_has_any_keyword(text: str, keywords: list) -> bool:
+    if not isinstance(text, str):
+        return False
+    t = text.lower()
+    return any(k in t for k in keywords)
 
 
-def simple_signal_score(text):
+def evaluate_backstory_consistency(evidence_df: pd.DataFrame) -> Tuple[int, str]:
+    """Conservative rule-based decision for an entire backstory.
+
+    - If no evidence -> contradict (0)
+    - If any evidence contains contradiction keywords -> contradict (0)
+    - If any evidence has high similarity (>= 0.75) or contains support keywords -> consistent (1)
+    - Otherwise -> contradict (0)
     """
-    Very simple rule-based signal system
-    """
+    if evidence_df is None or evidence_df.empty:
+        return 0, "No supporting evidence found for backstory"
 
-    text = str(text).lower()
+    # Check contradictions first (conservative)
+    for _, row in evidence_df.iterrows():
+        if text_has_any_keyword(row.get("text", ""), CONTRADICT_KEYWORDS):
+            chunk = row.get("chunk_id")
+            return 0, f"Contradiction found in evidence chunk: {chunk}"
 
-    support_score = sum(k in text for k in SUPPORT_KEYWORDS)
-    contradict_score = sum(k in text for k in CONTRADICT_KEYWORDS)
+    # Check for strong similarity signals
+    if "similarity" in evidence_df.columns:
+        try:
+            best_sim = float(evidence_df["similarity"].max())
+            if best_sim >= 0.75:
+                best_row = evidence_df.loc[evidence_df["similarity"].idxmax()]
+                return 1, f"Strong supporting evidence (similarity={best_sim:.2f}) in chunk {best_row.get('chunk_id')}"
+        except Exception:
+            pass
 
-    return support_score, contradict_score
+    # Check for support keywords in texts
+    for _, row in evidence_df.iterrows():
+        if text_has_any_keyword(row.get("text", ""), SUPPORT_KEYWORDS):
+            chunk = row.get("chunk_id")
+            return 1, f"Supportive language found in evidence chunk: {chunk}"
 
-
-def evaluate_claim_consistency(df):
-    support_total = 0
-    contradict_total = 0
-
-    for _, row in df.iterrows():
-        text = row["text"]
-        s, c = simple_signal_score(text)
-
-        support_total += s
-        contradict_total += c
-
-    if contradict_total > support_total:
-        label = 0
-        rationale = "Story behavior conflicts with key backstory assumptions"
-    else:
-        label = 1
-        rationale = "Backstory aligns with character actions and narrative flow"
-
-    return label, rationale
+    # fallback conservative decision
+    return 0, "Insufficient supporting evidence; leaning contradict"
 
 
-def save_result(story_id, label, rationale):
-
+def save_result(story_id: str, label: int, rationale: str):
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 
-    result_row = pd.DataFrame([{
-        "story_id": story_id,
-        "prediction": label,
-        "rationale": rationale
-    }])
+    row = pd.DataFrame([{"story_id": story_id, "prediction": int(label), "rationale": rationale}])
 
     if not os.path.exists(OUTPUT_FILE):
-        result_row.to_csv(OUTPUT_FILE, index=False)
+        row.to_csv(OUTPUT_FILE, index=False)
     else:
-        result_row.to_csv(OUTPUT_FILE, mode="a", header=False, index=False)
+        row.to_csv(OUTPUT_FILE, mode="a", header=False, index=False)
 
-    print(f"\n✔ Saved decision for story {story_id}")
-
-
-def demo_run():
-
-    sample_file = "retrieval_sample.csv"
-
-    df = read_retrieval_file(sample_file)
-
-    story_id = df["chunk_id"][0].split("_")[0]
-
-    label, rationale = evaluate_claim_consistency(df)
-
-    print("\nDecision:")
-    print("Label:", label)
-    print("Reason:", rationale)
-
-    save_result(story_id, label, rationale)
+    print(f"\n✔ Saved decision for story {story_id} -> {label}")
 
 
 if __name__ == "__main__":
-    demo_run()
+    # simple smoke demo
+    print("consistency_checker ready")
