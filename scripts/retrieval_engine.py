@@ -1,148 +1,123 @@
-# =====================================================
-# KDSH 2026 – PART 2: CLAIM → EVIDENCE RETRIEVAL
-# =====================================================
-
-# ---------------- IMPORTS ----------------
-import os
 import pandas as pd
+import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
-# -----------------------------------------
+import numpy as np
+import os
 
-
-# ---------------- SETTINGS ----------------
-CHUNKS_FILE = "processed/train_chunks.csv"
-CLAIMS_FILE = "processed/claims/backstory_claims.csv"
-
-OUTPUT_FOLDER = "processed/retrieval_outputs"
-OUTPUT_FILE = "retrieval_results.csv"
-
+# ---------- SETTINGS ----------
+CHUNKS_FILE = "../processed/train_chunks.csv"   # same logic will work for test also
+OUTPUT_FOLDER = "../processed/retrieval_outputs/"
 MODEL_NAME = "all-MiniLM-L6-v2"
 TOP_K = 5
-# -----------------------------------------
+# ------------------------------
 
 
-# =====================================================
-# LOAD DATA
-# =====================================================
-
-def load_chunks():
-    df = pd.read_csv(CHUNKS_FILE)
-
-    required_cols = {"story_id", "chunk_id", "chunk_number", "text"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError("Chunks file must contain story_id, chunk_id, chunk_number, text")
-
-    return df
+def ensure_output_folder():
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
-def load_claims():
-    df = pd.read_csv(CLAIMS_FILE)
-
-    required_cols = {"claim_id", "story_id", "claim"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError("Claims file must contain claim_id, story_id, claim")
-
-    return df
+print("\nLoading embedding model...")
+model = SentenceTransformer(MODEL_NAME)
 
 
-# =====================================================
-# EMBEDDING + FAISS
-# =====================================================
-
-def embed_texts(model, texts):
-    return model.encode(texts, convert_to_numpy=True)
+def embed_text_list(text_list):
+    """
+    Convert text list -> embeddings
+    """
+    return model.encode(text_list, convert_to_numpy=True)
 
 
 def build_faiss_index(embeddings):
+    """
+    FAISS index creation
+    """
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)
     index.add(embeddings)
     return index
 
 
-# =====================================================
-# RETRIEVAL CORE
-# =====================================================
-
-def retrieve_evidence_for_claim(claim_row, model, df_chunks):
+def load_chunks():
     """
-    Retrieve top-K relevant chunks for a single claim
+    Load story chunks created by Dharanesh
     """
+    print(f"\nLoading chunks from: {CHUNKS_FILE}")
+    df = pd.read_csv(CHUNKS_FILE)
 
-    story_id = claim_row["story_id"]
-    claim_text = claim_row["claim"]
+    texts = df["text"].tolist()
+    chunk_ids = df["chunk_id"].tolist()
 
-    # Filter chunks for the same story
-    story_chunks = df_chunks[df_chunks["story_id"] == story_id].reset_index(drop=True)
+    print(f"Total chunks loaded: {len(df)}")
 
-    texts = story_chunks["text"].tolist()
-    chunk_ids = story_chunks["chunk_id"].tolist()
+    return df, texts, chunk_ids
 
-    # Embed chunks
-    embeddings = embed_texts(model, texts)
 
-    # Build FAISS index
+def build_search_system():
+    df, texts, chunk_ids = load_chunks()
+
+    print("\nEmbedding story chunks...")
+    embeddings = embed_text_list(texts)
+
+    print("Building FAISS index...")
     index = build_faiss_index(embeddings)
 
-    # Embed claim
-    query_embedding = embed_texts(model, [claim_text])
+    return df, index, embeddings, chunk_ids
 
-    # Search
-    distances, positions = index.search(query_embedding, TOP_K)
+
+df_chunks, search_index, emb_store, chunk_ids = build_search_system()
+
+
+def search_related_passages(query_text, top_k=TOP_K):
+    """
+    Input  : backstory sentence / claim
+    Output : top matching story parts
+    """
+
+    query_emb = embed_text_list([query_text])
+
+    distances, positions = search_index.search(query_emb, top_k)
 
     # Collect results
     results = []
+
     for dist, pos in zip(distances[0], positions[0]):
         results.append({
-            "claim_id": claim_row["claim_id"],
-            "story_id": story_id,
-            "claim": claim_text,
             "chunk_id": chunk_ids[pos],
-            "chunk_number": story_chunks.loc[pos, "chunk_number"],
-            "similarity_score": float(dist),
-            "text": story_chunks.loc[pos, "text"]
+            "score": float(dist),
+            "text": df_chunks.loc[pos, "text"]
         })
 
     return results
 
 
-# =====================================================
-# MAIN PIPELINE
-# =====================================================
+def save_search_results(claim, results, file_name="retrieval_sample.csv"):
+    out_path = os.path.join(OUTPUT_FOLDER, file_name)
 
-def main():
+    df = pd.DataFrame(results)
+    df.insert(0, "claim", claim)
 
-    print("\n[PART 2] Loading data...")
-    df_chunks = load_chunks()
-    df_claims = load_claims()
+    df.to_csv(out_path, index=False)
 
-    print("[PART 2] Loading embedding model...")
-    model = SentenceTransformer(MODEL_NAME)
-
-    all_results = []
-
-    print("[PART 2] Retrieving evidence for claims...")
-    for _, claim_row in df_claims.iterrows():
-        print(f"  → Processing claim: {claim_row['claim']}")
-        claim_results = retrieve_evidence_for_claim(
-            claim_row, model, df_chunks
-        )
-        all_results.extend(claim_results)
-
-    # Save output
-    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-    output_path = os.path.join(OUTPUT_FOLDER, OUTPUT_FILE)
-
-    pd.DataFrame(all_results).to_csv(output_path, index=False)
-
-    print("\n✅ PART 2 COMPLETED SUCCESSFULLY")
-    print(f"📄 Retrieval results saved to: {output_path}")
+    print(f"\n✔ Saved retrieved evidence to: {out_path}")
 
 
-# =====================================================
-# ENTRY POINT
-# =====================================================
+def demo_example():
+    print("\n--- Demo Search Example ---")
+
+    claim = "The character had a lonely childhood and feared abandonment"
+
+    results = search_related_passages(claim)
+
+    for r in results:
+        print("\n--- Match ---")
+        print("Chunk:", r["chunk_id"])
+        print("Score:", r["score"])
+        print("Text:", r["text"][:250], "...")
+
+    save_search_results(claim, results)
+
 
 if __name__ == "__main__":
-    main()
+    ensure_output_folder()
+    demo_example()

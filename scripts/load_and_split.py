@@ -1,28 +1,25 @@
-# scripts/load_and_split.py
-import zipfile
-import csv
-from pathlib import Path
-import pathway as pw
+import os
+import pandas as pd
 
-DATA_ZIP = "data/Books-20260106T140352Z-1-001.zip"
-EXTRACT_DIR = "processed/raw_books"
-OUTPUT_CSV = "processed/story_chunks.csv"
-CHUNK_SIZE = 350
+# ---------- SETTINGS ----------
+INPUT_FILES = [
+    "../data/train.csv",
+    "../data/test.csv"
+]
 
-
-def extract_zip(zip_path, extract_dir):
-    extract_dir = Path(extract_dir)
-    extract_dir.mkdir(parents=True, exist_ok=True)
-
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for info in zf.infolist():
-            if info.filename.endswith(".txt"):
-                target = extract_dir / Path(info.filename).name
-                with zf.open(info.filename) as src, open(target, "wb") as dst:
-                    dst.write(src.read())
+OUTPUT_FOLDER = "../processed/"
+CHUNK_SIZE = 300  # words per chunk
+# ------------------------------
 
 
-def split_into_chunks(text, size):
+def ensure_output_folder():
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+
+def split_text_into_chunks(text, chunk_size=300):
+    """
+    Splits big story text into small readable chunks (paragraph size)
+    """
     words = text.split()
     for i in range(0, len(words), size):
         yield " ".join(words[i:i + size])
