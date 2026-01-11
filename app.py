@@ -1,46 +1,27 @@
-import subprocess
+# app.py
+
 import os
-import sys
+
+STEPS = [
+    ("Pathway Ingestion & Chunking", "python scripts/load_and_split.py"),
+    ("Claim Reasoning Pipeline", "python scripts/backstory_claim_engine.py"),
+]
 
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-SCRIPTS_DIR = os.path.join(PROJECT_ROOT, "scripts")
+def run():
+    for name, cmd in STEPS:
+        print("\n" + "=" * 70)
+        print(f" RUNNING: {name}")
+        print("=" * 70)
 
+        status = os.system(cmd)
+        if status != 0:
+            print(f"❌ FAILED at step: {name}")
+            return
 
-def run_step(name, script_name):
-    script_path = os.path.join(SCRIPTS_DIR, script_name)
-
-    if not os.path.exists(script_path):
-        print(f"\n❌ Script not found: {script_path}")
-        sys.exit(1)
-
-    print("\n" + "="*65)
-    print(f" RUNNING: {name}")
-    print("="*65)
-
-    result = subprocess.run(f"python \"{script_path}\"", shell=True)
-
-    if result.returncode != 0:
-        print(f"\n❌ FAILED at step: {name}")
-        sys.exit(1)
-
-    print(f"\n✔ COMPLETED: {name}")
-
-
-def main():
-
-    run_step("Step 1 — Story Chunk Preparation",
-             "load_and_split.py")
-
-    run_step("Step 2 — Retrieval & FAISS Index Build",
-             "retrieval_engine.py")
-
-    run_step("Step 3 — Backstory Claim Processing",
-             "backstory_claim_engine.py")
-
-    print("\n🎯 Pipeline Finished Successfully")
-    print("➡ Final results available at: outputs/results.csv")
+    print("\n🎯 FULL PATHWAY PIPELINE COMPLETED")
+    print("📁 Output → outputs/results.csv")
 
 
 if __name__ == "__main__":
-    main()
+    run()
