@@ -1,0 +1,61 @@
+story_id,prediction,rationale
+95,0,Insufficient supporting evidence; leaning contradict
+136,0,Insufficient supporting evidence; leaning contradict
+59,0,Insufficient supporting evidence; leaning contradict
+60,0,Insufficient supporting evidence; leaning contradict
+124,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk252
+111,0,Insufficient supporting evidence; leaning contradict
+135,0,Insufficient supporting evidence; leaning contradict
+27,0,Contradiction found in evidence chunk: In search of the castaways_chunk290
+110,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk1311
+42,0,Contradiction found in evidence chunk: In search of the castaways_chunk290
+56,0,Insufficient supporting evidence; leaning contradict
+80,0,Insufficient supporting evidence; leaning contradict
+28,0,Insufficient supporting evidence; leaning contradict
+101,1,Supportive language found in evidence chunk: The Count of Monte Cristo_chunk471
+91,0,Insufficient supporting evidence; leaning contradict
+24,0,Insufficient supporting evidence; leaning contradict
+119,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk235
+93,0,Insufficient supporting evidence; leaning contradict
+72,1,Supportive language found in evidence chunk: In search of the castaways_chunk14
+16,0,Insufficient supporting evidence; leaning contradict
+30,0,Insufficient supporting evidence; leaning contradict
+97,0,Insufficient supporting evidence; leaning contradict
+22,0,Insufficient supporting evidence; leaning contradict
+53,0,Insufficient supporting evidence; leaning contradict
+58,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk600
+81,0,Contradiction found in evidence chunk: In search of the castaways_chunk290
+47,0,Insufficient supporting evidence; leaning contradict
+7,0,Insufficient supporting evidence; leaning contradict
+121,0,Insufficient supporting evidence; leaning contradict
+129,0,Insufficient supporting evidence; leaning contradict
+51,0,Insufficient supporting evidence; leaning contradict
+127,1,Supportive language found in evidence chunk: The Count of Monte Cristo_chunk150
+133,0,Insufficient supporting evidence; leaning contradict
+52,0,Insufficient supporting evidence; leaning contradict
+114,1,Supportive language found in evidence chunk: The Count of Monte Cristo_chunk1079
+2,0,Insufficient supporting evidence; leaning contradict
+33,0,Insufficient supporting evidence; leaning contradict
+15,0,Contradiction found in evidence chunk: In search of the castaways_chunk330
+82,1,Supportive language found in evidence chunk: The Count of Monte Cristo_chunk767
+37,0,Insufficient supporting evidence; leaning contradict
+3,0,Insufficient supporting evidence; leaning contradict
+103,0,Insufficient supporting evidence; leaning contradict
+94,1,Supportive language found in evidence chunk: The Count of Monte Cristo_chunk869
+85,0,Insufficient supporting evidence; leaning contradict
+21,0,Insufficient supporting evidence; leaning contradict
+49,0,Insufficient supporting evidence; leaning contradict
+140,0,Insufficient supporting evidence; leaning contradict
+64,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk212
+131,0,Insufficient supporting evidence; leaning contradict
+61,0,Insufficient supporting evidence; leaning contradict
+86,0,Insufficient supporting evidence; leaning contradict
+38,0,Contradiction found in evidence chunk: In search of the castaways_chunk290
+132,0,Insufficient supporting evidence; leaning contradict
+77,0,Insufficient supporting evidence; leaning contradict
+70,0,Insufficient supporting evidence; leaning contradict
+115,0,Insufficient supporting evidence; leaning contradict
+78,0,Insufficient supporting evidence; leaning contradict
+87,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk990
+75,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk235
+44,0,Contradiction found in evidence chunk: The Count of Monte Cristo_chunk193
