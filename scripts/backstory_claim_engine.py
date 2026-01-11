@@ -3,8 +3,8 @@ from typing import List
 
 import pandas as pd
 
-from retrieval_engine import get_relevant_chunks, save_search_results
-from consistency_checker import evaluate_backstory_consistency, save_result
+from .retrieval_engine import get_relevant_chunks, save_search_results
+from .consistency_checker import evaluate_backstory_consistency, save_result
 
 BACKSTORY_FILE = os.path.join("data", "test.csv")  # change to test.csv when needed
 OUTPUT_FOLDER = os.path.join("processed", "claims")
